@@ -3,7 +3,62 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 from geopy.distance import geodesic
+def add_crosshair(m, size=28, thickness=3, color="#32CD32", glow=True):
+    glow_css = f"filter: drop-shadow(0 0 8px {color});" if glow else ""
+    html = f"""
+    <style>
+      .crosshair {{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: {size}px;
+        height: {size}px;
+        margin-left: -{size//2}px;
+        margin-top: -{size//2}px;
+        pointer-events: none;
+        z-index: 999999;
+      }}
+      .crosshair:before, .crosshair:after {{
+        content: "";
+        position: absolute;
+        background: {color};
+        {glow_css}
+        opacity: 0.95;
+      }}
+      .crosshair:before {{
+        left: 50%;
+        top: 0%;
+        width: {thickness}px;
+        height: 100%;
+        margin-left: -{thickness//2}px;
+        border-radius: 999px;
+      }}
+      .crosshair:after {{
+        top: 50%;
+        left: 0%;
+        height: {thickness}px;
+        width: 100%;
+        margin-top: -{thickness//2}px;
+        border-radius: 999px;
+      }}
+      /* puntito central */
+      .crosshair .dot {{
+        position:absolute;
+        top:50%;
+        left:50%;
+        width:{thickness*2}px;
+        height:{thickness*2}px;
+        margin-left:-{thickness}px;
+        margin-top:-{thickness}px;
+        border-radius:999px;
+        background:{color};
+        {glow_css}
+      }}
+    </style>
 
+    <div class="crosshair"><div class="dot"></div></div>
+    """
+    m.get_root().html.add_child(folium.Element(html))
 # -----------------------------
 # Page config
 # -----------------------------
@@ -66,11 +121,17 @@ st.markdown(
 # Config
 # -----------------------------
 LOCATIONS = [
-    {"name": "Parque del Agua (Bucaramanga)", "lat": 7.1224, "lon": -73.1155},
-    {"name": "UIS", "lat": 7.1409, "lon": -73.1213},
-    {"name": "Estadio Américo Montanini", "lat": 7.1339, "lon": -73.1204},
-    {"name": "Centro de Girón", "lat": 7.0702, "lon": -73.1690},
-    {"name": "Cerro del Santísimo (Floridablanca)", "lat": 7.0627, "lon": -73.0867},
+    {"name": "Parque del Agua", "lat": 7.1224, "lon": -73.1155},
+    {"name": "Biblioteca UIS", "lat": 7.140988, "lon": -73.120911},
+    {"name": "Estadio Américo Montanini", "lat": 7.136685, "lon": -73.116535},
+    {"name": "Parque San Pio", "lat": 7.118566, "lon": -73.110505},
+    {"name": "Parque de los niños", "lat": 7.125140, "lon": -73.119015},
+    {"name": "Aeropuerto Palonegro", "lat": 7.127934, "lon": -73.183150},
+    {"name": "Parque La Flora", "lat":  7.108590, "lon": -73.107533},
+    {"name": "Centro Comercial el Cacique", "lat": 7.099290, "lon":  -73.107281},
+    {"name": "Centro Comercial Sandresito La Isla", "lat": 7.108622, "lon": -73.117683},
+    {"name": "Parque las cigarras", "lat": 7.103767, "lon": -73.121245},
+
 ]
 
 # Pistas: inicio + 3 zoom-outs
@@ -199,7 +260,7 @@ if st.session_state.phase == "clue":
     m.options["touchZoom"] = False
     m.options["boxZoom"] = False
     m.options["keyboard"] = False
-
+    add_crosshair(m, size=34, thickness=3, color="#32CD32", glow=True)
     st_folium(
         m,
         height=MAP_HEIGHT,
@@ -227,7 +288,7 @@ elif st.session_state.phase == "guess":
         control_scale=True,
         zoom_control=True,
     )
-
+    
     # Mostrar marcador si ya hay guess
     if st.session_state.guess is not None:
         folium.Marker(
