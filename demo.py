@@ -121,7 +121,7 @@ st.markdown(
 # Config
 # -----------------------------
 LOCATIONS = [
-    {"name": "Parque del Agua", "lat": 7.1224, "lon": -73.1155},
+    {"name": "Parque del Agua", "lat": 7.130071, "lon":  -73.109332},
     {"name": "Biblioteca UIS", "lat": 7.140988, "lon": -73.120911},
     {"name": "Estadio Américo Montanini", "lat": 7.136685, "lon": -73.116535},
     {"name": "Parque San Pio", "lat": 7.118566, "lon": -73.110505},
@@ -377,4 +377,5 @@ else:
         key="result_map_main",
         returned_objects=[]
     )
+
 
