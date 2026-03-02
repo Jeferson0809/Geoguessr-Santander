@@ -131,7 +131,8 @@ LOCATIONS = [
     {"name": "Centro Comercial el Cacique", "lat": 7.099290, "lon":  -73.107281},
     {"name": "Centro Comercial Sandresito La Isla", "lat": 7.108622, "lon": -73.117683},
     {"name": "Parque las cigarras", "lat": 7.103767, "lon": -73.121245},
-
+    {"name": "Parque San Francisco", "lat":  7.131202, "lon": -73.125035},
+    {"name": "Club Campestre", "lat": 7.064437, "lon": -73.115783},
 ]
 
 # Pistas: inicio + 3 zoom-outs
@@ -376,3 +377,4 @@ else:
         key="result_map_main",
         returned_objects=[]
     )
+
