@@ -121,7 +121,7 @@ st.markdown(
 # Config
 # -----------------------------
 # El primero es el colegio que vamos a visitar: siempre sale en la primera ronda.
-PINNED = {"name": "Colegio - Cra 16 #10A-18", "lat": 7.135430, "lon": -73.130550}
+PINNED = {"name": "Colegio del Sagrado Corazón de Jesús (Hnas. Bethlemitas)", "lat": 7.135430, "lon": -73.130550}
 
 LOCATIONS = [
     PINNED,

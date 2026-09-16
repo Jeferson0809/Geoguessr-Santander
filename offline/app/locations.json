@@ -1,7 +1,7 @@
 {
   "_comment": "El primer elemento (pinned=true) siempre sale en la primera ronda. Los demas salen al azar.",
   "locations": [
-    {"name": "Colegio - Cra 16 #10A-18", "lat": 7.135430, "lon": -73.130550, "pinned": true},
+    {"name": "Colegio del Sagrado Corazón de Jesús (Hnas. Bethlemitas)", "lat": 7.135430, "lon": -73.130550, "pinned": true},
     {"name": "Parque del Agua", "lat": 7.130071, "lon": -73.109332},
     {"name": "Biblioteca UIS", "lat": 7.140988, "lon": -73.120911},
     {"name": "Estadio Americo Montanini", "lat": 7.136685, "lon": -73.116535},
