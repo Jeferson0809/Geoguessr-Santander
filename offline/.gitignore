@@ -1,0 +1,6 @@
+tiles.db
+build/
+dist/
+*.spec
+app/assets/logo.ico
+__pycache__/
