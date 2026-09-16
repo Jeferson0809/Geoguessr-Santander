@@ -5,7 +5,7 @@
 const ZOOM_LEVELS = [19, 18, 17, 16];   // pista inicial + 3 zoom-outs
 const MAX_SCORE = 1000;
 const GUESS_CENTER_DEFAULT = [7.119, -73.123];
-const GUESS_ZOOM_DEFAULT = 12;
+const GUESS_ZOOM_DEFAULT = 13;   // a 12 el mapa arranca demasiado pelado
 
 // Debe coincidir con METRO_BBOX / zooms de download_tiles.py
 const METRO_BOUNDS = L.latLngBounds([7.020, -73.230], [7.200, -73.040]);
@@ -39,7 +39,7 @@ let map = null;
 const $ = (id) => document.getElementById(id);
 
 function capaSat() {
-  return L.tileLayer("tiles/sat/{z}/{x}/{y}", {
+  return L.tileLayer("tiles/sat/{z}/{x}/{y}.jpg", {
     minZoom: SAT_MIN_ZOOM, maxZoom: SAT_MAX_ZOOM,
     minNativeZoom: SAT_MIN_ZOOM, maxNativeZoom: SAT_MAX_ZOOM,
     errorTileUrl: TILE_VACIO, attribution: "Tiles &copy; Esri (copia local)",
@@ -47,7 +47,7 @@ function capaSat() {
 }
 
 function capaCalles() {
-  return L.tileLayer("tiles/street/{z}/{x}/{y}", {
+  return L.tileLayer("tiles/street/{z}/{x}/{y}.jpg", {
     minZoom: CALLES_MIN_ZOOM, maxZoom: CALLES_MAX_ZOOM,
     minNativeZoom: CALLES_MIN_ZOOM, maxNativeZoom: CALLES_MAX_ZOOM,
     errorTileUrl: TILE_VACIO, attribution: "Tiles &copy; Esri (copia local)",
@@ -249,14 +249,8 @@ $("btnOut").onclick = function () {
   if (state.zoomIdx < ZOOM_LEVELS.length - 1) { state.zoomIdx++; render(); }
 };
 
-fetch("locations.json")
-  .then(function (r) { return r.json(); })
-  .then(function (data) {
-    LOCATIONS = data.locations;
-    PINNED = LOCATIONS.filter(function (l) { return l.pinned; })[0] || null;
-    resetGame();
-  })
-  .catch(function (err) {
-    $("panel").innerHTML =
-      '<div class="aviso warn">No pude cargar locations.json: ' + err + "</div>";
-  });
+// locations.js define LOCATIONS_DATA. Se carga con <script>, no con fetch:
+// asi la carpeta tambien funciona abriendo index.html con doble clic (file://).
+LOCATIONS = LOCATIONS_DATA.locations;
+PINNED = LOCATIONS.filter(function (l) { return l.pinned; })[0] || null;
+resetGame();
