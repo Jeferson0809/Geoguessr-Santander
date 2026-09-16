@@ -23,9 +23,11 @@ DB_PATH = os.path.join(HERE, "tiles.db")
 UA = "Geoguessr-Santander-Offline/1.0 (uso educativo; descarga unica de area local)"
 
 SAT_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-# Nota: NO se usa tile.openstreetmap.org. Su politica prohibe descargas masivas y
-# responde con un tile "Access blocked" (codigo 200) que arruinaria el paquete.
-STREET_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+# Capa de calles. NO se usa tile.openstreetmap.org (el del Streamlit): su politica
+# prohibe la descarga masiva y responde "Access blocked" con codigo 200, asi que el
+# tile malo se cuela como bueno. De las alternativas sin API key, World_Topo_Map es
+# la que mejor se lee: trae nombres de carrera y calle desde el zoom 14.
+STREET_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
 
 # --- que descargar -----------------------------------------------------------
 SAT_ZOOMS = [16, 17, 18, 19]   # las 4 pistas del juego (Esri no tiene z20 aqui)
@@ -66,8 +68,11 @@ def open_db():
 
 def plan():
     """Devuelve la lista de (layer, z, x, y) a descargar."""
-    with open(os.path.join(HERE, "app", "locations.json"), encoding="utf-8") as fh:
-        locations = json.load(fh)["locations"]
+    # locations.js es "const LOCATIONS_DATA = {...};" -> se saca el JSON del medio
+    with open(os.path.join(HERE, "app", "locations.js"), encoding="utf-8") as fh:
+        crudo = fh.read()
+    crudo = crudo.split("=", 1)[1].rsplit(";", 1)[0]
+    locations = json.loads(crudo)["locations"]
 
     wanted = set()
 

@@ -55,6 +55,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def serve_tile(self, partes):
         layer, z, x, y = partes
+        y = y.split(".")[0]          # la URL trae .jpg, la base guarda solo el numero
         try:
             data = get_tile(layer, int(z), int(x), int(y))
         except ValueError:
