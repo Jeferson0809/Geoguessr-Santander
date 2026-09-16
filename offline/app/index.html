@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hands-on Computer Vision | GeoGuessr Santander (offline)</title>
+<link rel="stylesheet" href="vendor/leaflet.css" />
+<style>
+  :root {
+    --verde: #32CD32;
+    --texto: #EAF2FF;
+    --texto2: #C9D6FF;
+    --panel: rgba(13, 21, 32, 0.92);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--texto);
+    background:
+      radial-gradient(1200px 600px at 20% 0%, rgba(50, 205, 50, 0.12), transparent 60%),
+      radial-gradient(900px 500px at 90% 10%, rgba(0, 255, 180, 0.08), transparent 55%),
+      linear-gradient(180deg, #05070C 0%, #05070C 100%);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 10px 16px 28px; }
+
+  header.top { display: flex; align-items: center; gap: 18px; }
+  header.top img { width: 170px; height: auto; }
+  .titulo { font-size: 34px; font-weight: 700; line-height: 1.1; }
+  .subtitulo { font-size: 22px; opacity: 0.8; color: var(--texto2); margin-top: 2px; }
+  hr.sep { opacity: 0.25; margin: 14px 0; border: 0; border-top: 1px solid #fff; }
+
+  .controles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  button.chip {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid rgba(50, 205, 50, 0.35);
+    background: linear-gradient(180deg, rgba(13, 21, 32, 0.92), rgba(8, 12, 18, 0.92));
+    color: var(--texto);
+    font-size: 15px;
+    padding: 12px 10px;
+    cursor: pointer;
+    transition: transform 0.06s ease, border 0.2s ease, box-shadow 0.2s ease;
+  }
+  button.chip:hover:not(:disabled) {
+    border: 1px solid rgba(50, 205, 50, 0.65);
+    box-shadow: 0 0 18px rgba(50, 205, 50, 0.14);
+  }
+  button.chip:active:not(:disabled) { transform: translateY(1px); }
+  button.chip:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .caption { font-size: 14px; opacity: 0.65; margin: 12px 2px 6px; }
+
+  #mapa { height: 540px; width: 100%; border-radius: 14px; background: #0b0f16; }
+
+  .aviso {
+    border-radius: 14px;
+    border: 1px solid rgba(50, 205, 50, 0.18);
+    background: rgba(13, 21, 32, 0.65);
+    padding: 12px 14px;
+    margin-top: 12px;
+    font-size: 15px;
+  }
+  .aviso.warn { border-color: rgba(255, 193, 7, 0.35); }
+  .aviso.ok { border-color: rgba(50, 205, 50, 0.55); }
+
+  .fila { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; align-items: stretch; }
+  .metrica {
+    flex: 1 1 180px;
+    border-radius: 14px;
+    border: 1px solid rgba(50, 205, 50, 0.18);
+    background: rgba(13, 21, 32, 0.65);
+    padding: 12px 14px;
+  }
+  .metrica .k { font-size: 13px; opacity: 0.7; }
+  .metrica .v { font-size: 28px; font-weight: 700; margin-top: 2px; }
+  .mini {
+    border-radius: 12px;
+    border: 1px solid rgba(50, 205, 50, 0.35);
+    background: rgba(13, 21, 32, 0.92);
+    color: var(--texto);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  /* mira estilo francotirador sobre el mapa de pistas */
+  #mira {
+    position: absolute; top: 50%; left: 50%;
+    width: 34px; height: 34px; margin-left: -17px; margin-top: -17px;
+    pointer-events: none; z-index: 900; display: none;
+  }
+  #mira:before, #mira:after {
+    content: ""; position: absolute; background: var(--verde);
+    filter: drop-shadow(0 0 8px var(--verde)); opacity: 0.95;
+  }
+  #mira:before { left: 50%; top: 0; width: 3px; height: 100%; margin-left: -1px; border-radius: 999px; }
+  #mira:after { top: 50%; left: 0; height: 3px; width: 100%; margin-top: -1px; border-radius: 999px; }
+  #mira .dot {
+    position: absolute; top: 50%; left: 50%;
+    width: 6px; height: 6px; margin-left: -3px; margin-top: -3px;
+    border-radius: 999px; background: var(--verde); filter: drop-shadow(0 0 8px var(--verde));
+  }
+  .mapbox { position: relative; }
+  .leaflet-container { background: #0b0f16; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <img src="assets/logo.png" alt="logo" />
+    <div>
+      <div class="titulo">Hands-on Computer Vision</div>
+      <div class="subtitulo">GeoGuessr Aereo &mdash; Zoom-only &bull; Bucaramanga/Santander</div>
+    </div>
+  </header>
+
+  <hr class="sep" />
+
+  <div class="controles">
+    <button class="chip" id="btnNuevo">&#128260; Nuevo lugar</button>
+    <button class="chip" id="btnIn">&#10133; Zoom IN</button>
+    <button class="chip" id="btnOut">&#10134; Zoom OUT</button>
+    <button class="chip" id="btnFase">&#127919; Ir a adivinar</button>
+  </div>
+
+  <div class="caption" id="caption"></div>
+
+  <div class="mapbox">
+    <div id="mapa"></div>
+    <div id="mira"><div class="dot"></div></div>
+  </div>
+
+  <div id="panel"></div>
+
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

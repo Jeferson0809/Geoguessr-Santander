@@ -120,7 +120,11 @@ st.markdown(
 # -----------------------------
 # Config
 # -----------------------------
+# El primero es el colegio que vamos a visitar: siempre sale en la primera ronda.
+PINNED = {"name": "Colegio - Cra 16 #10A-18", "lat": 7.135430, "lon": -73.130550}
+
 LOCATIONS = [
+    PINNED,
     {"name": "Parque del Agua", "lat": 7.130071, "lon":  -73.109332},
     {"name": "Biblioteca UIS", "lat": 7.140988, "lon": -73.120911},
     {"name": "Estadio Américo Montanini", "lat": 7.136685, "lon": -73.116535},
@@ -135,8 +139,10 @@ LOCATIONS = [
     {"name": "Club Campestre", "lat": 7.064437, "lon": -73.115783},
 ]
 
-# Pistas: inicio + 3 zoom-outs
-ZOOM_LEVELS = [20, 19, 18, 17]
+# Pistas: inicio + 3 zoom-outs.
+# Esri no tiene imagen a zoom 20 en Bucaramanga (devuelve un tile gris que dice
+# "Map data not yet available"), por eso la escalera arranca en 19.
+ZOOM_LEVELS = [19, 18, 17, 16]
 MAX_SCORE = 1000
 
 # Satélite (drone)
@@ -154,7 +160,7 @@ MAP_HEIGHT = 540
 # State
 # -----------------------------
 if "target" not in st.session_state:
-    st.session_state.target = random.choice(LOCATIONS)
+    st.session_state.target = PINNED          # primera ronda: el colegio
 if "zoom_idx" not in st.session_state:
     st.session_state.zoom_idx = 0
 if "phase" not in st.session_state:
@@ -167,7 +173,8 @@ if "guess_view" not in st.session_state:
     st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
 
 def reset_game():
-    st.session_state.target = random.choice(LOCATIONS)
+    otros = [l for l in LOCATIONS if l is not PINNED and l is not st.session_state.target]
+    st.session_state.target = random.choice(otros or LOCATIONS)
     st.session_state.zoom_idx = 0
     st.session_state.phase = "clue"
     st.session_state.guess = None
