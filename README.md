@@ -23,11 +23,11 @@ que marcar en el mapa dónde queda. El puntaje baja con la distancia.
 En la [página de descargas](https://github.com/Jeferson0809/Geoguessr-Santander/releases/latest)
 hay **dos formatos del mismo juego**. Los dos funcionan sin internet.
 
-**`GeoGuessr-Santander-Offline.exe`** (~73 MB) — un solo archivo.
+**`GeoGuessr-Santander-Offline.exe`** (~76 MB) — un solo archivo.
 Doble clic, se abre una ventana negra y enseguida el navegador.
 **No cerrar la ventana negra** mientras se juega.
 
-**`GeoGuessr-Santander-Offline-carpeta.zip`** (~67 MB) — sin ejecutable.
+**`GeoGuessr-Santander-Offline-carpeta.zip`** (~70 MB) — sin ejecutable.
 Descomprimir y doble clic en `index.html`. Hay que copiar la carpeta **completa**:
 los mapas están en la subcarpeta `tiles/`.
 

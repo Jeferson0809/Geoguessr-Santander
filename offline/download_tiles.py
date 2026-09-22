@@ -39,7 +39,9 @@ METRO_BBOX = (7.020, -73.230, 7.200, -73.040)   # (lat_min, lon_min, lat_max, lo
 METRO_ZOOMS = [11, 12, 13, 14, 15, 16]
 
 # Nucleo urbano con un zoom extra de detalle
-CORE_BBOX = (7.060, -73.160, 7.160, -73.090)
+# Tiene que cubrir TODAS las ubicaciones de locations.js, si no el zoom 17 sale gris
+# justo encima de la respuesta (le pasaba al Aeropuerto Palonegro, en -73.183).
+CORE_BBOX = (7.055, -73.195, 7.165, -73.090)
 CORE_ZOOMS = [17]
 
 MARGEN = 2                     # tiles extra alrededor de cada bbox

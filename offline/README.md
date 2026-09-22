@@ -8,7 +8,7 @@ Hay **dos formatos** del mismo juego. Se generan del mismo código:
 
 | | `.exe` | Carpeta |
 |---|---|---|
-| Qué es | Un solo archivo de ~73 MB | Una carpeta (o su `.zip`) de ~68 MB |
+| Qué es | Un solo archivo de ~76 MB | Una carpeta (o su `.zip`) de ~72 MB |
 | Cómo se abre | Doble clic al `.exe` | Doble clic a `index.html` |
 | Ventaja | Un archivo, nada más que copiar | **Ningún ejecutable**, así que ningún antivirus lo toca |
 | Desventaja | Algunos antivirus lo bloquean (ver abajo) | Son ~5.000 archivos, copiar al USB tarda |
@@ -84,7 +84,11 @@ Para que un lugar salga siempre de primero, ponerle `"pinned": true` (solo uno).
   imagen a ese detalle en Bucaramanga y devuelve un tile gris que dice
   *"Map data not yet available"* (es lo que se ve hoy en la versión de Streamlit).
 - **Calles (fase de adivinar):** zoom 11–16 en el área metropolitana
-  (lat 7.020–7.200, lon −73.230 → −73.040) y zoom 17 en el núcleo urbano.
+  (lat 7.020–7.200, lon −73.230 → −73.040) y zoom 17 en `CORE_BBOX`.
+  El juego abre esta fase en **zoom 14**, no más lejos: a 13 esta capa deja de
+  rotular y la ciudad se ve como una mancha beige sin un solo nombre.
+  `CORE_BBOX` tiene que cubrir **todas** las ubicaciones de `locations.js`, si no
+  el zoom 17 sale gris justo encima de la respuesta.
 
 Fuera de esa zona el mapa se ve gris: no está descargado. Si se necesita más área,
 se ajustan `METRO_BBOX` / `CORE_BBOX` en `download_tiles.py` y se vuelve a bajar.

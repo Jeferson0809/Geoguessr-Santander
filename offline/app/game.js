@@ -5,11 +5,11 @@
 const ZOOM_LEVELS = [19, 18, 17, 16];   // pista inicial + 3 zoom-outs
 const MAX_SCORE = 1000;
 const GUESS_CENTER_DEFAULT = [7.119, -73.123];
-const GUESS_ZOOM_DEFAULT = 13;   // a 12 el mapa arranca demasiado pelado
+const GUESS_ZOOM_DEFAULT = 14;   // a 13 el topo de Esri no rotula nada: arranca donde ya hay nombres
 
 // Debe coincidir con METRO_BBOX / zooms de download_tiles.py
 const METRO_BOUNDS = L.latLngBounds([7.020, -73.230], [7.200, -73.040]);
-const CALLES_MIN_ZOOM = 11;
+const CALLES_MIN_ZOOM = 12;   // mas afuera la capa queda sin etiquetas y no sirve para jugar
 const CALLES_MAX_ZOOM = 17;
 const SAT_MIN_ZOOM = 16;
 const SAT_MAX_ZOOM = 19;
