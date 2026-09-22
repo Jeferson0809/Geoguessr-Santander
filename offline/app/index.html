@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Hands-on Computer Vision | GeoGuessr Santander (offline)</title>
-<link rel="stylesheet" href="vendor/leaflet.css" />
+<link rel="stylesheet" href="vendor/maplibre-gl.css" />
 <style>
   :root {
     --verde: #32CD32;
@@ -103,7 +103,8 @@
     border-radius: 999px; background: var(--verde); filter: drop-shadow(0 0 8px var(--verde));
   }
   .mapbox { position: relative; }
-  .leaflet-container { background: #0b0f16; }
+  .maplibregl-map { background: #0b0f16; }
+  .maplibregl-ctrl-attrib { font-size: 10px; }
 </style>
 </head>
 <body>
@@ -137,7 +138,8 @@
 
 </div>
 
-<script src="vendor/leaflet.js"></script>
+<script src="vendor/maplibre-gl.js"></script>
+<script src="vendor/protomaps-themes-base.js"></script>
 <script src="locations.js"></script>
 <script src="game.js"></script>
 </body>

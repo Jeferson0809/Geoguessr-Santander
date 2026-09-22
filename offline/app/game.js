@@ -1,26 +1,27 @@
 /* GeoGuessr Santander - version offline.
-   Mismo juego que demo.py (Streamlit) pero en Leaflet puro, leyendo los tiles
-   desde el servidor local que va dentro del .exe. */
+
+   Misma dinamica que demo.py (Streamlit), pero con MapLibre:
+   - fase de pistas: foto satelital de Esri, guardada como imagenes (raster)
+   - fase de adivinar: mapa de OpenStreetMap dibujado en vivo desde tiles
+     vectoriales de Protomaps, que es lo que hace que se vea igual al online
+     (parques, manzanas, y el nombre de cada colegio, parque y barrio)
+   Todo sale del servidor local; no se toca internet. */
 
 const ZOOM_LEVELS = [19, 18, 17, 16];   // pista inicial + 3 zoom-outs
 const MAX_SCORE = 1000;
-const GUESS_CENTER_DEFAULT = [7.119, -73.123];
-const GUESS_ZOOM_DEFAULT = 14;   // a 13 el topo de Esri no rotula nada: arranca donde ya hay nombres
+const GUESS_CENTER_DEFAULT = [-73.123, 7.119];   // MapLibre usa [lon, lat]
+const GUESS_ZOOM_DEFAULT = 13;
 
-// Debe coincidir con METRO_BBOX / zooms de download_tiles.py
-const METRO_BOUNDS = L.latLngBounds([7.020, -73.230], [7.200, -73.040]);
-const CALLES_MIN_ZOOM = 12;   // mas afuera la capa queda sin etiquetas y no sirve para jugar
-const CALLES_MAX_ZOOM = 17;
+// Debe coincidir con BBOX / METRO_BBOX de los descargadores
+const METRO_BOUNDS = [[-73.230, 7.020], [-73.040, 7.200]];
+const CALLES_MIN_ZOOM = 11;
+const CALLES_MAX_ZOOM = 18;
+const VT_MAX_ZOOM = 15;      // hasta donde hay datos; MapLibre reescala arriba
 const SAT_MIN_ZOOM = 16;
 const SAT_MAX_ZOOM = 19;
 
-// tile gris para huecos (no deberia verse si la descarga esta completa)
-const TILE_VACIO =
-  "data:image/svg+xml;base64," +
-  btoa('<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">' +
-       '<rect width="256" height="256" fill="#0b0f16"/></svg>');
-
-L.Icon.Default.prototype.options.imagePath = "vendor/images/";
+// Rutas absolutas: MapLibre no resuelve rutas relativas en el estilo.
+const BASE = location.href.replace(/[^/]*$/, "");
 
 let LOCATIONS = [];
 let PINNED = null;
@@ -38,29 +39,57 @@ let map = null;
 
 const $ = (id) => document.getElementById(id);
 
-function capaSat() {
-  return L.tileLayer("tiles/sat/{z}/{x}/{y}.jpg", {
-    minZoom: SAT_MIN_ZOOM, maxZoom: SAT_MAX_ZOOM,
-    minNativeZoom: SAT_MIN_ZOOM, maxNativeZoom: SAT_MAX_ZOOM,
-    errorTileUrl: TILE_VACIO, attribution: "Tiles &copy; Esri (copia local)",
-  });
+// --------------------------------------------------------------------------
+// Estilos de mapa
+// --------------------------------------------------------------------------
+function estiloSatelite() {
+  return {
+    version: 8,
+    sources: {
+      sat: {
+        type: "raster",
+        tiles: [BASE + "tiles/sat/{z}/{x}/{y}.jpg"],
+        tileSize: 256,
+        minzoom: SAT_MIN_ZOOM,
+        maxzoom: SAT_MAX_ZOOM,
+        attribution: "Imagenes &copy; Esri (copia local)",
+      },
+    },
+    layers: [{ id: "sat", type: "raster", source: "sat" }],
+  };
 }
 
-function capaCalles() {
-  return L.tileLayer("tiles/street/{z}/{x}/{y}.jpg", {
-    minZoom: CALLES_MIN_ZOOM, maxZoom: CALLES_MAX_ZOOM,
-    minNativeZoom: CALLES_MIN_ZOOM, maxNativeZoom: CALLES_MAX_ZOOM,
-    errorTileUrl: TILE_VACIO, attribution: "Tiles &copy; Esri (copia local)",
-  });
+function estiloCalles() {
+  return {
+    version: 8,
+    glyphs: BASE + "vendor/fonts/{fontstack}/{range}.pbf",
+    sprite: BASE + "vendor/sprites/light",
+    sources: {
+      protomaps: {
+        type: "vector",
+        tiles: [BASE + "tiles/vt/{z}/{x}/{y}.mvt"],
+        minzoom: 0,
+        maxzoom: VT_MAX_ZOOM,
+        attribution: "&copy; OpenStreetMap (copia local)",
+      },
+    },
+    // Ojo: el 2do argumento es el OBJETO del tema, no su nombre. Pasando la
+    // cadena "light" devuelve capas con todos los colores en undefined y
+    // MapLibre rechaza el estilo entero (mapa en negro).
+    layers: protomaps_themes_base.layers(
+      "protomaps", protomaps_themes_base.namedTheme("light"), { lang: "es" }
+    ),
+  };
 }
 
-function distanciaKm(a, b) {
+// --------------------------------------------------------------------------
+function distanciaKm(a, b) {                 // a y b son [lon, lat]
   const R = 6371.0088;
   const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(b[0] - a[0]);
-  const dLon = toRad(b[1] - a[1]);
+  const dLat = toRad(b[1] - a[1]);
+  const dLon = toRad(b[0] - a[0]);
   const h = Math.sin(dLat / 2) ** 2 +
-            Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
+            Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
@@ -83,8 +112,32 @@ function resetGame() {
   render();
 }
 
+let observador = null;
+
+/* MapLibre fija el tamano del canvas al construirse, y si en ese momento el
+   navegador todavia no termino el layout queda con un canvas mas chico que el
+   div (el mapa aparece recortado en una esquina). El observador lo mantiene
+   sincronizado, y de paso sirve si se cambia el tamano de la ventana o se
+   conecta un proyector. */
+function crearMapa(opciones) {
+  const contenedor = $("mapa");
+  const m = new maplibregl.Map(Object.assign({ container: "mapa" }, opciones));
+  m.resize();
+  if (window.ResizeObserver) {
+    observador = new ResizeObserver(function () { m.resize(); });
+    observador.observe(contenedor);
+  }
+  m.once("load", function () { m.resize(); });
+  return m;
+}
+
 function destruirMapa() {
+  if (observador) { observador.disconnect(); observador = null; }
   if (map) { map.remove(); map = null; }
+}
+
+function marcador(lonlat, color) {
+  return new maplibregl.Marker({ color: color }).setLngLat(lonlat).addTo(map);
 }
 
 // --------------------------------------------------------------------------
@@ -92,20 +145,20 @@ function destruirMapa() {
 // --------------------------------------------------------------------------
 function renderClue() {
   const zoom = ZOOM_LEVELS[state.zoomIdx];
-  const target = [state.target.lat, state.target.lon];
+  const target = [state.target.lon, state.target.lat];
 
   $("caption").textContent =
     "FASE 1/2 - Pistas | Zoom " + zoom + " | " + state.zoomIdx + "/" +
     (ZOOM_LEVELS.length - 1) + " zoom-outs usados";
 
   destruirMapa();
-  map = L.map("mapa", {
-    center: target, zoom: zoom,
-    dragging: false, scrollWheelZoom: false, doubleClickZoom: false,
-    touchZoom: false, boxZoom: false, keyboard: false,
-    zoomControl: false, attributionControl: true,
+  map = crearMapa({
+    style: estiloSatelite(),
+    center: target,
+    zoom: zoom,
+    interactive: false,        // anti-trampa: ni arrastrar, ni rueda, ni click
+    attributionControl: { compact: true },
   });
-  capaSat().addTo(map);
 
   $("mira").style.display = "block";
   $("panel").innerHTML =
@@ -120,31 +173,31 @@ function renderGuess() {
     "FASE 2/2 - Adivinar | Muevete y haz zoom libremente. Haz 1 click donde crees que estaba el lugar.";
 
   destruirMapa();
-  map = L.map("mapa", {
-    center: state.guessView.center, zoom: state.guessView.zoom,
-    zoomControl: true, maxBounds: METRO_BOUNDS, maxBoundsViscosity: 0.8,
-    minZoom: CALLES_MIN_ZOOM, maxZoom: CALLES_MAX_ZOOM,
+  map = crearMapa({
+    style: estiloCalles(),
+    center: state.guessView.center,
+    zoom: state.guessView.zoom,
+    minZoom: CALLES_MIN_ZOOM,
+    maxZoom: CALLES_MAX_ZOOM,
+    maxBounds: METRO_BOUNDS,
+    attributionControl: { compact: true },
   });
-  capaCalles().addTo(map);
-  L.control.scale({ imperial: false }).addTo(map);
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+  map.addControl(new maplibregl.ScaleControl({ unit: "metric" }));
   $("mira").style.display = "none";
 
-  if (state.guess) {
-    L.marker(state.guess).addTo(map).bindTooltip("Tu guess");
-  }
+  if (state.guess) marcador(state.guess, "#2b6cb0");
 
   map.on("click", function (ev) {
     if (state.guess) return;               // 1 solo click, igual que el original
-    state.guess = [ev.latlng.lat, ev.latlng.lng];
+    state.guess = [ev.lngLat.lng, ev.lngLat.lat];
     state.guessView = { center: state.guess, zoom: map.getZoom() };
     render();
   });
 
   map.on("moveend", function () {
-    state.guessView = {
-      center: [map.getCenter().lat, map.getCenter().lng],
-      zoom: map.getZoom(),
-    };
+    const c = map.getCenter();
+    state.guessView = { center: [c.lng, c.lat], zoom: map.getZoom() };
   });
 
   if (!state.guess) {
@@ -153,8 +206,8 @@ function renderGuess() {
       '<div class="aviso">Cuando tengas tu guess, presiona <b>Finalizar</b> arriba.</div>';
   } else {
     $("panel").innerHTML =
-      '<div class="aviso">&#128205; Guess: <b>' + state.guess[0].toFixed(6) + ", " +
-      state.guess[1].toFixed(6) + '</b></div>' +
+      '<div class="aviso">&#128205; Guess: <b>' + state.guess[1].toFixed(6) + ", " +
+      state.guess[0].toFixed(6) + '</b></div>' +
       '<div class="fila">' +
       '  <button class="mini" id="btnBorrar">&#129529; Borrar guess</button>' +
       '  <button class="mini" id="btnRecentrar">&#127919; Recentrar Bucaramanga</button>' +
@@ -177,25 +230,45 @@ function renderGuess() {
 // --------------------------------------------------------------------------
 function renderResult() {
   $("caption").textContent = "RESULTADO - Distancia y score.";
-  const target = [state.target.lat, state.target.lon];
+  const target = [state.target.lon, state.target.lat];
 
   destruirMapa();
-  map = L.map("mapa", {
-    center: state.guessView.center, zoom: state.guessView.zoom,
-    zoomControl: true, minZoom: CALLES_MIN_ZOOM, maxZoom: CALLES_MAX_ZOOM,
+  map = crearMapa({
+    style: estiloCalles(),
+    center: state.guessView.center,
+    zoom: state.guessView.zoom,
+    minZoom: CALLES_MIN_ZOOM,
+    maxZoom: CALLES_MAX_ZOOM,
+    attributionControl: { compact: true },
   });
-  capaCalles().addTo(map);
-  L.control.scale({ imperial: false }).addTo(map);
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+  map.addControl(new maplibregl.ScaleControl({ unit: "metric" }));
   $("mira").style.display = "none";
 
-  const real = L.marker(target).addTo(map).bindTooltip("Ubicacion real");
-  if (real._icon) real._icon.style.filter = "hue-rotate(140deg) saturate(2.2)";
+  map.on("load", function () {
+    marcador(target, "#e53e3e");
+    if (!state.guess) {
+      map.jumpTo({ center: target, zoom: 15 });
+      return;
+    }
+    marcador(state.guess, "#2b6cb0");
+    map.addSource("linea", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: [state.guess, target] },
+      },
+    });
+    map.addLayer({
+      id: "linea",
+      type: "line",
+      source: "linea",
+      paint: { "line-color": "#32CD32", "line-width": 4 },
+    });
+    map.fitBounds([state.guess, target], { padding: 90, maxZoom: 16, duration: 0 });
+  });
 
   if (state.guess) {
-    L.marker(state.guess).addTo(map).bindTooltip("Tu guess");
-    L.polyline([state.guess, target], { weight: 4, color: "#32CD32" }).addTo(map);
-    map.fitBounds(L.latLngBounds([state.guess, target]).pad(0.35), { maxZoom: CALLES_MAX_ZOOM });
-
     const dKm = distanciaKm(state.guess, target);
     const score = Math.max(0, Math.round(MAX_SCORE - dKm * 50));
     $("panel").innerHTML =
@@ -208,7 +281,6 @@ function renderResult() {
       state.target.name + '</div></div>' +
       '</div>';
   } else {
-    map.setView(target, 14);
     $("panel").innerHTML =
       '<div class="aviso warn">No hubo guess.</div>' +
       '<div class="aviso ok">Era: <b>' + state.target.name + '</b></div>';
@@ -249,8 +321,13 @@ $("btnOut").onclick = function () {
   if (state.zoomIdx < ZOOM_LEVELS.length - 1) { state.zoomIdx++; render(); }
 };
 
-// locations.js define LOCATIONS_DATA. Se carga con <script>, no con fetch:
-// asi la carpeta tambien funciona abriendo index.html con doble clic (file://).
-LOCATIONS = LOCATIONS_DATA.locations;
-PINNED = LOCATIONS.filter(function (l) { return l.pinned; })[0] || null;
-resetGame();
+// --------------------------------------------------------------------------
+if (!maplibregl.supported || maplibregl.supported()) {
+  LOCATIONS = LOCATIONS_DATA.locations;
+  PINNED = LOCATIONS.filter(function (l) { return l.pinned; })[0] || null;
+  resetGame();
+} else {
+  $("panel").innerHTML =
+    '<div class="aviso warn">Este navegador no soporta WebGL, que es lo que ' +
+    'necesita el mapa. Proba con Chrome o Edge actualizado.</div>';
+}

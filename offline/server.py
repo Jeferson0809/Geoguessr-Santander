@@ -63,9 +63,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if data is None:
             self.send_error(404, "tile fuera del area descargada")
             return
-        ctype = "image/png" if data[:4] == b"\x89PNG" else "image/jpeg"
+
         self.send_response(200)
-        self.send_header("Content-Type", ctype)
+        if layer == "vt":
+            # Tiles vectoriales: van tal cual salieron del PMTiles, o sea MVT
+            # comprimido con gzip. Se declara el encoding y el navegador los
+            # descomprime solo.
+            self.send_header("Content-Type", "application/x-protobuf")
+            if data[:2] == b"\x1f\x8b":
+                self.send_header("Content-Encoding", "gzip")
+        else:
+            self.send_header(
+                "Content-Type", "image/png" if data[:4] == b"\x89PNG" else "image/jpeg"
+            )
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "max-age=86400")
         self.end_headers()

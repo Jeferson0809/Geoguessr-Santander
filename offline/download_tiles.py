@@ -1,12 +1,14 @@
-"""Descarga los tiles necesarios y los empaqueta en un SQLite (tiles.db).
+"""Descarga la foto satelital de cada ubicacion y la guarda en tiles.db.
 
-Se ejecuta UNA sola vez, con internet, antes de construir el .exe.
-El juego offline lee este archivo; no vuelve a salir a la red nunca.
+Es la capa de la FASE DE PISTAS. El mapa de la fase de adivinar no se baja
+aqui: son tiles vectoriales de OpenStreetMap y los trae download_vector.py.
+
+Se ejecuta UNA sola vez, con internet. El juego no vuelve a salir a la red.
 
     python download_tiles.py
 
-Nota: se descarga solo el area minima para jugar (unos pocos miles de tiles)
-y con pocas conexiones en paralelo, para no abusar de los servidores de Esri.
+Solo se baja el area minima para jugar y con pocas conexiones en paralelo,
+para no abusar de los servidores de Esri.
 """
 import json
 import math
@@ -23,28 +25,11 @@ DB_PATH = os.path.join(HERE, "tiles.db")
 UA = "Geoguessr-Santander-Offline/1.0 (uso educativo; descarga unica de area local)"
 
 SAT_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-# Capa de calles. NO se usa tile.openstreetmap.org (el del Streamlit): su politica
-# prohibe la descarga masiva y responde "Access blocked" con codigo 200, asi que el
-# tile malo se cuela como bueno. De las alternativas sin API key, World_Topo_Map es
-# la que mejor se lee: trae nombres de carrera y calle desde el zoom 14.
-STREET_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
 
 # --- que descargar -----------------------------------------------------------
 SAT_ZOOMS = [16, 17, 18, 19]   # las 4 pistas del juego (Esri no tiene z20 aqui)
 SAT_RADIUS_X = 3               # tiles a cada lado del centro
 SAT_RADIUS_Y = 2
-
-# Area metropolitana (fase de adivinar)
-METRO_BBOX = (7.020, -73.230, 7.200, -73.040)   # (lat_min, lon_min, lat_max, lon_max)
-METRO_ZOOMS = [11, 12, 13, 14, 15, 16]
-
-# Nucleo urbano con un zoom extra de detalle
-# Tiene que cubrir TODAS las ubicaciones de locations.js, si no el zoom 17 sale gris
-# justo encima de la respuesta (le pasaba al Aeropuerto Palonegro, en -73.183).
-CORE_BBOX = (7.055, -73.195, 7.165, -73.090)
-CORE_ZOOMS = [17]
-
-MARGEN = 2                     # tiles extra alrededor de cada bbox
 
 THREADS = 4
 
@@ -85,23 +70,12 @@ def plan():
                 for dy in range(-SAT_RADIUS_Y, SAT_RADIUS_Y + 1):
                     wanted.add(("sat", z, cx + dx, cy + dy))
 
-    for bbox, zooms in ((METRO_BBOX, METRO_ZOOMS), (CORE_BBOX, CORE_ZOOMS)):
-        lat_min, lon_min, lat_max, lon_max = bbox
-        for z in zooms:
-            x0, y0 = deg2tile(lat_max, lon_min, z)
-            x1, y1 = deg2tile(lat_min, lon_max, z)
-            # MARGEN: un par de tiles extra alrededor, si no a zoom bajo quedan
-            # franjas negras a los lados en pantallas anchas.
-            for x in range(min(x0, x1) - MARGEN, max(x0, x1) + MARGEN + 1):
-                for y in range(min(y0, y1) - MARGEN, max(y0, y1) + MARGEN + 1):
-                    wanted.add(("street", z, x, y))
-
     return sorted(wanted)
 
 
 def fetch(job):
     layer, z, x, y = job
-    url = (SAT_URL if layer == "sat" else STREET_URL).format(z=z, x=x, y=y)
+    url = SAT_URL.format(z=z, x=x, y=y)
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     for intento in range(3):
         try:
