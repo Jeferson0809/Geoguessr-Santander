@@ -1,3 +1,4 @@
+import math
 import random
 import streamlit as st
 import folium
@@ -137,6 +138,32 @@ LOCATIONS = [
     {"name": "Parque las cigarras", "lat": 7.103767, "lon": -73.121245},
     {"name": "Parque San Francisco", "lat":  7.131202, "lon": -73.125035},
     {"name": "Club Campestre", "lat": 7.064437, "lon": -73.115783},
+
+    # Coordenadas sacadas de OpenStreetMap y verificadas una por una contra la
+    # foto satelital a zoom 18. Solo entran sitios que se reconocen DESDE EL
+    # AIRE: muchos parques de Bucaramanga son plazoletas tapadas de arboles y
+    # desde arriba no se distinguen de una manzana cualquiera, asi que quedaron
+    # fuera aunque todo el mundo los conozca (Santander, Las Palmas, Turbay,
+    # Los Sarrapios, Morrorico, San Rafael, Las Mojarras).
+    # Tampoco entran los que quedaban a menos de 250 m de una ubicacion ya
+    # existente: a zoom 19 la vista abarca unos 335 m, asi que serian
+    # practicamente la misma foto en dos rondas distintas (el Velodromo cae
+    # sobre el Estadio Americo Montanini; el Coliseo Edmundo Luna y el CC
+    # Acropolis, sobre el Parque las Cigarras).
+    {"name": "Estadio 1º de Mayo (UIS)", "lat": 7.140848, "lon": -73.118518},
+    {"name": "Centro Comercial Megamall", "lat": 7.130462, "lon": -73.111979},
+    {"name": "Centro Comercial Único Outlet", "lat": 7.087529, "lon": -73.121435},
+    {"name": "CentroAbastos", "lat": 7.103192, "lon": -73.167965},
+    {"name": "Patinódromo Roberto García Peña", "lat": 7.105119, "lon": -73.125111},
+    {"name": "Terminal de Transportes", "lat": 7.088619, "lon": -73.129394},
+    {"name": "Hospital Universitario de Santander", "lat": 7.128156, "lon": -73.114088},
+    {"name": "Plaza de Mercado Central", "lat": 7.119941, "lon": -73.126714},
+    {"name": "Universidad de Santander - UDES", "lat": 7.105239, "lon": -73.095104},
+    {"name": "Universidad Santo Tomás", "lat": 7.136820, "lon": -73.128284},
+    {"name": "Universidad Autónoma de Bucaramanga - UNAB", "lat": 7.114879, "lon": -73.105254},
+    {"name": "Parque Centenario", "lat": 7.121920, "lon": -73.124640},
+    {"name": "Parque García Rovira", "lat": 7.116919, "lon": -73.130079},
+    {"name": "Parque Metropolitano Bosque Encantado", "lat": 7.125085, "lon": -73.106955},
 ]
 
 # Pistas: inicio + 3 zoom-outs.
@@ -144,6 +171,20 @@ LOCATIONS = [
 # "Map data not yet available"), por eso la escalera arranca en 19.
 ZOOM_LEVELS = [19, 18, 17, 16]
 MAX_SCORE = 1000
+
+# Puntaje. Antes era lineal sin tolerancia (1000 - 50*km), que llegaba a 0 a los
+# 20 km: con ubicaciones lejanas como CentroAbastos o el aeropuerto, un
+# estudiante que ubicaba bien la zona se quedaba en cero. Ahora los primeros
+# metros son gratis y la caida es mas suave, asi que en todo el rango se puntua
+# mejor que antes.
+TOLERANCIA_KM = 0.3        # hasta aca son 1000 puntos: diste en el blanco
+PENALIZACION_POR_KM = 30   # antes eran 50
+
+
+def calcular_score(d_km):
+    """Puntaje de 0 a MAX_SCORE segun el error en kilometros."""
+    exceso = max(0.0, d_km - TOLERANCIA_KM)
+    return max(0, int(round(MAX_SCORE - exceso * PENALIZACION_POR_KM)))
 
 # Satélite (drone)
 SAT_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -367,7 +408,7 @@ else:
         folium.PolyLine([st.session_state.guess, target_latlon], weight=4).add_to(res_map)
 
         d_km = geodesic(st.session_state.guess, target_latlon).km
-        score = max(0, int(MAX_SCORE - d_km * 50))
+        score = calcular_score(d_km)
 
         m1, m2, m3 = st.columns(3)
         m1.metric("Distancia (km)", f"{d_km:.2f}")
