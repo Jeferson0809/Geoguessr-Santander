@@ -171,19 +171,25 @@ LOCATIONS = [
 ZOOM_LEVELS = [19, 18, 17, 16]
 MAX_SCORE = 1000
 
-# Puntaje. Antes era lineal sin tolerancia (1000 - 50*km), que llegaba a 0 a los
-# 20 km: con ubicaciones lejanas como CentroAbastos o el aeropuerto, un
-# estudiante que ubicaba bien la zona se quedaba en cero. Ahora los primeros
-# metros son gratis y la caida es mas suave, asi que en todo el rango se puntua
-# mejor que antes.
-TOLERANCIA_KM = 0.3        # hasta aca son 1000 puntos: diste en el blanco
-PENALIZACION_POR_KM = 30   # antes eran 50
+# Puntaje. Dos cosas a la vez:
+#
+#  1. El 1000 tiene que ser alcanzable. Si le diste al edificio, son 1000 puntos
+#     aunque no hayas clickeado el pixel exacto; por eso hay una tolerancia.
+#  2. Pasada esa tolerancia tiene que penalizar de verdad.
+#
+# La caida es exponencial y no lineal a proposito. Con una recta sobre una
+# ciudad de 15 km todos los tiros terminan amontonados entre 850 y 1000 y el
+# puntaje deja de distinguir al que ubico bien del que ubico mas o menos: 2 km
+# en Bucaramanga son unas 20 cuadras y no pueden valer 949. Con la exponencial
+# los puntos se reparten justo en el rango donde de verdad cae la gente.
+TOLERANCIA_KM = 0.15   # ancho de un edificio y algo mas: adentro son 1000
+ESCALA_KM = 4.0        # cada 4 km de error, el puntaje se multiplica por ~0.37
 
 
 def calcular_score(d_km):
     """Puntaje de 0 a MAX_SCORE segun el error en kilometros."""
     exceso = max(0.0, d_km - TOLERANCIA_KM)
-    return max(0, int(round(MAX_SCORE - exceso * PENALIZACION_POR_KM)))
+    return int(round(MAX_SCORE * math.exp(-exceso / ESCALA_KM)))
 
 # Satélite (drone)
 SAT_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -423,12 +429,12 @@ else:
 
         if d_km <= TOLERANCIA_KM:
             veredicto, estilo = "🎯 ¡En el blanco!", st.success
-        elif d_km <= 1:
+        elif d_km <= 0.5:
             veredicto, estilo = "🔥 Muy cerca", st.success
-        elif d_km <= 3:
+        elif d_km <= 1.5:
             veredicto, estilo = "👍 Cerca", st.info
-        elif d_km <= 8:
-            veredicto, estilo = "🙂 Te faltó un poco", st.info
+        elif d_km <= 4:
+            veredicto, estilo = "🙂 Te faltó", st.info
         else:
             veredicto, estilo = "😅 Lejos", st.warning
 
