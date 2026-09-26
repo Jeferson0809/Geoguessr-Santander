@@ -225,7 +225,7 @@ def reset_game():
     st.session_state.phase = "clue"
     st.session_state.guess = None
     st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
-    st.session_state.globos_mostrados = False   # que la animacion pueda salir de nuevo
+    st.session_state.anim_mostrada = False      # que la animacion pueda salir de nuevo
 
 target = st.session_state.target
 target_latlon = (target["lat"], target["lon"])
@@ -427,28 +427,76 @@ else:
         # A menos de 1 km, "0.08 km" no se entiende; "80 m" si.
         distancia_txt = f"{d_km * 1000:.0f} m" if d_km < 1 else f"{d_km:.2f} km"
 
+        # (emoji, frase, color, funcion de aviso de Streamlit)
         if d_km <= TOLERANCIA_KM:
-            veredicto, estilo = "🎯 ¡En el blanco!", st.success
+            emoji, frase, color, estilo = "🎯", "¡En el blanco!", "#32CD32", st.success
         elif d_km <= 0.5:
-            veredicto, estilo = "🔥 Muy cerca", st.success
+            emoji, frase, color, estilo = "🔥", "Muy cerca", "#5BD75B", st.success
         elif d_km <= 1.5:
-            veredicto, estilo = "👍 Cerca", st.info
+            emoji, frase, color, estilo = "👍", "Cerca", "#4DA3FF", st.info
         elif d_km <= 4:
-            veredicto, estilo = "🙂 Te faltó", st.info
+            emoji, frase, color, estilo = "🙂", "Te faltó", "#FFC107", st.info
         else:
-            veredicto, estilo = "😅 Lejos", st.warning
+            emoji, frase, color, estilo = "😅", "Lejos", "#FF7043", st.warning
 
         m1, m2, m3 = st.columns(3)
         m1.metric("Distancia", distancia_txt)
         m2.metric("Score", f"{score}/{MAX_SCORE}")
         m3.success(f"Era: {target['name']}")
-        estilo(veredicto)
+        estilo(f"{emoji} {frase}")
 
-        # La animacion solo cuando de verdad acerto. Si saliera siempre, para la
-        # tercera ronda ya no significa nada.
-        if d_km <= TOLERANCIA_KM and not st.session_state.get("globos_mostrados"):
-            st.session_state.globos_mostrados = True
-            st.balloons()
+        # Tarjeta que aparece en el centro de la pantalla y se va sola. Se
+        # muestra una sola vez por ronda: Streamlit vuelve a ejecutar todo el
+        # script ante cualquier interaccion, y sin este candado la animacion se
+        # repetiria cada vez. El flag se limpia en reset_game().
+        if not st.session_state.get("anim_mostrada"):
+            st.session_state.anim_mostrada = True
+            st.markdown(
+                f"""
+                <div class="veredicto-pop">
+                  <div class="vp-emoji">{emoji}</div>
+                  <div class="vp-frase">{frase}</div>
+                  <div class="vp-detalle">{distancia_txt} &nbsp;·&nbsp; {score} puntos</div>
+                </div>
+                <style>
+                  .veredicto-pop {{
+                    position: fixed;
+                    top: 42%;
+                    left: 50%;
+                    z-index: 999999;
+                    pointer-events: none;      /* que nunca tape un click */
+                    text-align: center;
+                    padding: 28px 54px;
+                    border-radius: 22px;
+                    border: 2px solid {color};
+                    background: rgba(8, 12, 18, 0.93);
+                    box-shadow: 0 0 40px {color}55, 0 18px 50px rgba(0, 0, 0, 0.55);
+                    animation: veredictoPop 2.6s cubic-bezier(.2, .8, .3, 1) forwards;
+                  }}
+                  .vp-emoji  {{ font-size: 62px; line-height: 1; }}
+                  .vp-frase  {{
+                    font-size: 34px; font-weight: 800; margin-top: 10px;
+                    color: {color}; letter-spacing: 0.4px;
+                  }}
+                  .vp-detalle {{
+                    font-size: 17px; margin-top: 6px; color: #C9D6FF; opacity: 0.85;
+                  }}
+                  @keyframes veredictoPop {{
+                      0% {{ opacity: 0; transform: translate(-50%, -50%) scale(0.7); }}
+                     12% {{ opacity: 1; transform: translate(-50%, -50%) scale(1.06); }}
+                     22% {{ opacity: 1; transform: translate(-50%, -50%) scale(1); }}
+                     70% {{ opacity: 1; transform: translate(-50%, -50%) scale(1); }}
+                    100% {{ opacity: 0; transform: translate(-50%, -52%) scale(0.97);
+                            visibility: hidden; }}
+                  }}
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+            # Los globos quedan solo para el acierto: son el premio gordo y si
+            # salieran en cada ronda dejarian de significar algo.
+            if d_km <= TOLERANCIA_KM:
+                st.balloons()
     else:
         st.warning("No hubo guess.")
         st.success(f"Era: {target['name']}")
