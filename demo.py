@@ -219,6 +219,7 @@ def reset_game():
     st.session_state.phase = "clue"
     st.session_state.guess = None
     st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
+    st.session_state.globos_mostrados = False   # que la animacion pueda salir de nuevo
 
 target = st.session_state.target
 target_latlon = (target["lat"], target["lon"])
@@ -406,13 +407,42 @@ else:
         folium.Marker(st.session_state.guess, tooltip="Tu guess", icon=folium.Icon(color="blue")).add_to(res_map)
         folium.PolyLine([st.session_state.guess, target_latlon], weight=4).add_to(res_map)
 
+        # Encuadrar los dos marcadores. Antes el mapa se quedaba donde el
+        # estudiante hubiera dejado la vista, que es justo cuando menos sirve:
+        # lo que se quiere ver al terminar es que tan cerca estuvo.
+        res_map.fit_bounds(
+            [list(st.session_state.guess), list(target_latlon)],
+            padding=(60, 60),
+        )
+
         d_km = geodesic(st.session_state.guess, target_latlon).km
         score = calcular_score(d_km)
 
+        # A menos de 1 km, "0.08 km" no se entiende; "80 m" si.
+        distancia_txt = f"{d_km * 1000:.0f} m" if d_km < 1 else f"{d_km:.2f} km"
+
+        if d_km <= TOLERANCIA_KM:
+            veredicto, estilo = "🎯 ¡En el blanco!", st.success
+        elif d_km <= 1:
+            veredicto, estilo = "🔥 Muy cerca", st.success
+        elif d_km <= 3:
+            veredicto, estilo = "👍 Cerca", st.info
+        elif d_km <= 8:
+            veredicto, estilo = "🙂 Te faltó un poco", st.info
+        else:
+            veredicto, estilo = "😅 Lejos", st.warning
+
         m1, m2, m3 = st.columns(3)
-        m1.metric("Distancia (km)", f"{d_km:.2f}")
+        m1.metric("Distancia", distancia_txt)
         m2.metric("Score", f"{score}/{MAX_SCORE}")
         m3.success(f"Era: {target['name']}")
+        estilo(veredicto)
+
+        # La animacion solo cuando de verdad acerto. Si saliera siempre, para la
+        # tercera ronda ya no significa nada.
+        if d_km <= TOLERANCIA_KM and not st.session_state.get("globos_mostrados"):
+            st.session_state.globos_mostrados = True
+            st.balloons()
     else:
         st.warning("No hubo guess.")
         st.success(f"Era: {target['name']}")
