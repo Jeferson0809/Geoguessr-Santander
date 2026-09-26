@@ -122,7 +122,7 @@ st.markdown(
 # Config
 # -----------------------------
 # El primero es el colegio que vamos a visitar: siempre sale en la primera ronda.
-PINNED = {"name": "Colegio del Sagrado Corazón de Jesús (Hnas. Bethlemitas)", "lat": 7.135430, "lon": -73.130550}
+PINNED = {"name": "Institución Educativa Comuneros - Bucaramanga", "lat": 7.136007, "lon": -73.129005}
 
 LOCATIONS = [
     PINNED,
@@ -159,7 +159,6 @@ LOCATIONS = [
     {"name": "Hospital Universitario de Santander", "lat": 7.128156, "lon": -73.114088},
     {"name": "Plaza de Mercado Central", "lat": 7.119941, "lon": -73.126714},
     {"name": "Universidad de Santander - UDES", "lat": 7.105239, "lon": -73.095104},
-    {"name": "Universidad Santo Tomás", "lat": 7.136820, "lon": -73.128284},
     {"name": "Universidad Autónoma de Bucaramanga - UNAB", "lat": 7.114879, "lon": -73.105254},
     {"name": "Parque Centenario", "lat": 7.121920, "lon": -73.124640},
     {"name": "Parque García Rovira", "lat": 7.116919, "lon": -73.130079},
