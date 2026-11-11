@@ -1,6 +1,6 @@
 # GeoGuessr Santander
 
-Juego tipo GeoGuessr con fotos aéreas de Bucaramanga, para las sesiones de
+Juego tipo GeoGuessr con fotos aéreas de Santander, para las sesiones de
 **Hands-on Computer Vision** en colegios.
 
 Se ve un lugar desde arriba, solo se puede hacer zoom out (3 pistas), y luego hay
@@ -53,6 +53,13 @@ Sirve para probar cambios antes de subirlos. Para jugar no hace falta.
 ---
 
 ## Ubicaciones
+
+**La versión online tiene dos ciudades**: 26 lugares de Bucaramanga y 10 de
+Barrancabermeja. Un selector arriba permite jugar con una, con la otra, o con las
+dos mezcladas. Si se eligen las dos, el mapa de adivinar arranca abierto para que
+ambas quepan en pantalla — están a 81 km.
+
+La versión offline por ahora tiene solo Bucaramanga.
 
 Las dos versiones arrancan **siempre** en el colegio que toca visitar, y después
 pasan al resto de lugares al azar.

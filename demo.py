@@ -124,7 +124,7 @@ st.markdown(
 # El primero es el colegio que vamos a visitar: siempre sale en la primera ronda.
 PINNED = {"name": "Institución Educativa Comuneros - Bucaramanga", "lat": 7.136007, "lon": -73.129005}
 
-LOCATIONS = [
+BUCARAMANGA = [
     PINNED,
     {"name": "Parque del Agua", "lat": 7.130071, "lon":  -73.109332},
     {"name": "Biblioteca UIS", "lat": 7.140988, "lon": -73.120911},
@@ -165,6 +165,31 @@ LOCATIONS = [
     {"name": "Parque Metropolitano Bosque Encantado", "lat": 7.125085, "lon": -73.106955},
 ]
 
+# Barrancabermeja. Mismo criterio que arriba: coordenadas de OpenStreetMap,
+# verificadas una por una contra la foto satelital a zoom 18, y solo entran
+# lugares que se reconocen DESDE EL AIRE. Quedaron fuera el Coliseo Luis F.
+# Castellanos y el Estadio de Softball (a 257 y 318 m del Daniel Villa Zapata)
+# y el Parque La Constitucion (a 92 m de la Plaza de Mercado): a zoom 19 serian
+# casi la misma foto en dos rondas distintas.
+BARRANCABERMEJA = [
+    {"name": "Refinería de Ecopetrol", "lat": 7.067004, "lon": -73.878700},
+    {"name": "Estadio Daniel Villa Zapata", "lat": 7.073121, "lon": -73.864679},
+    {"name": "Aeropuerto Yariguíes", "lat": 7.024453, "lon": -73.806945},
+    {"name": "Estadio Villa Juventud", "lat": 7.070010, "lon": -73.839888},
+    {"name": "Plaza de Mercado Central de Barrancabermeja",
+     "lat": 7.060440, "lon": -73.870557},
+    {"name": "Centro Comercial San Silvestre", "lat": 7.067349, "lon": -73.858099},
+    {"name": "Hospital Regional del Magdalena Medio", "lat": 7.068023, "lon": -73.861331},
+    {"name": "Parque Infantil", "lat": 7.058972, "lon": -73.860983},
+    {"name": "Instituto Técnico Superior Industrial", "lat": 7.064227, "lon": -73.851174},
+    {"name": "Universidad Industrial de Santander - Sede Barrancabermeja",
+     "lat": 7.069798, "lon": -73.851447},
+]
+
+# Cada ubicacion lleva su ciudad para poder filtrar por ella al jugar.
+LOCATIONS = ([dict(l, ciudad="Bucaramanga") for l in BUCARAMANGA] +
+             [dict(l, ciudad="Barrancabermeja") for l in BARRANCABERMEJA])
+
 # Pistas: inicio + 3 zoom-outs.
 # Esri no tiene imagen a zoom 20 en Bucaramanga (devuelve un tile gris que dice
 # "Map data not yet available"), por eso la escalera arranca en 19.
@@ -195,9 +220,26 @@ def calcular_score(d_km):
 SAT_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
 SAT_ATTR = "Tiles © Esri"
 
-# Adivinar inicia centrado en Bucaramanga
-GUESS_CENTER_DEFAULT = (7.119, -73.123)
-GUESS_ZOOM_DEFAULT = 12
+# Donde arranca el mapa de adivinar, segun la ciudad elegida. Bucaramanga y
+# Barrancabermeja estan a 81 km: si se juega con las dos hay que abrir el mapa
+# lo suficiente para que ambas quepan, o el estudiante tendria que arrastrar
+# medio departamento para llegar a la otra.
+VISTAS = {
+    "Bucaramanga":     {"center": (7.119, -73.123), "zoom": 12},
+    "Barrancabermeja": {"center": (7.065, -73.856), "zoom": 13},
+    "Las dos":         {"center": (7.095, -73.490), "zoom": 9},
+}
+CIUDADES = list(VISTAS.keys())
+
+
+def vista_inicial(ciudad=None):
+    return dict(VISTAS[ciudad or st.session_state.get("ciudad", "Bucaramanga")])
+
+
+def lugares_de(ciudad):
+    if ciudad == "Las dos":
+        return LOCATIONS
+    return [l for l in LOCATIONS if l["ciudad"] == ciudad]
 
 # Altura del mapa (encaja mejor a 100%)
 MAP_HEIGHT = 540
@@ -205,6 +247,8 @@ MAP_HEIGHT = 540
 # -----------------------------
 # State
 # -----------------------------
+if "ciudad" not in st.session_state:
+    st.session_state.ciudad = "Bucaramanga"
 if "target" not in st.session_state:
     st.session_state.target = PINNED          # primera ronda: el colegio
 if "zoom_idx" not in st.session_state:
@@ -216,15 +260,23 @@ if "guess" not in st.session_state:
 
 # 👇 clave para NO resetear al mover
 if "guess_view" not in st.session_state:
-    st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
+    st.session_state.guess_view = vista_inicial()
 
-def reset_game():
-    otros = [l for l in LOCATIONS if l is not PINNED and l is not st.session_state.target]
-    st.session_state.target = random.choice(otros or LOCATIONS)
+
+def reset_game(ciudad=None):
+    if ciudad:
+        st.session_state.ciudad = ciudad
+    pool = lugares_de(st.session_state.ciudad)
+    # Se compara por nombre y no por identidad: LOCATIONS son copias con la
+    # ciudad agregada, asi que 'is PINNED' ya no sirve.
+    actual = st.session_state.get("target") or {}
+    otros = [l for l in pool
+             if l["name"] != PINNED["name"] and l["name"] != actual.get("name")]
+    st.session_state.target = random.choice(otros or pool)
     st.session_state.zoom_idx = 0
     st.session_state.phase = "clue"
     st.session_state.guess = None
-    st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
+    st.session_state.guess_view = vista_inicial()
     st.session_state.anim_mostrada = False      # que la animacion pueda salir de nuevo
 
 target = st.session_state.target
@@ -247,7 +299,7 @@ with header_r:
             Hands-on Computer Vision
           </div>
           <div style="opacity:0.80;font-size:30px;margin-top:-2px;color:#C9D6FF;">
-            GeoGuessr Aéreo — Zoom-only • Bucaramanga/Santander
+            GeoGuessr Aéreo — Zoom-only • Santander
           </div>
         </div>
         """,
@@ -259,6 +311,25 @@ st.markdown("<hr style='opacity:0.25;margin:0.8rem 0 0.8rem 0;'/>", unsafe_allow
 # -----------------------------
 # Controls
 # -----------------------------
+# Selector de ciudad. Cambiarlo arranca partida nueva: no tiene sentido seguir
+# con una pista de Bucaramanga si acabas de pasarte a Barrancabermeja.
+sel1, sel2 = st.columns([1, 3])
+with sel1:
+    elegida = st.selectbox(
+        "Ciudad", CIUDADES,
+        index=CIUDADES.index(st.session_state.ciudad),
+        label_visibility="collapsed",
+    )
+with sel2:
+    n = len(lugares_de(elegida))
+    st.caption(f"Jugando con {n} lugares de {elegida}"
+               if elegida != "Las dos" else
+               f"Jugando con los {n} lugares de las dos ciudades")
+
+if elegida != st.session_state.ciudad:
+    reset_game(elegida)
+    st.rerun()
+
 top1, top2, top3, top4 = st.columns([1, 1, 1, 1])
 
 with top1:
@@ -369,7 +440,9 @@ elif st.session_state.phase == "guess":
         # ✅ guardar vista para que al rerun NO “salte”
         st.session_state.guess_view = {
             "center": (lc["lat"], lc["lng"]),
-            "zoom": max(12, GUESS_ZOOM_DEFAULT)  # o fija 12
+            # Al marcar se acerca a escala de ciudad, aunque se venga de la
+            # vista abierta de "Las dos": si no, el marcador queda invisible.
+            "zoom": max(13, vista_inicial()["zoom"]),
         }
         st.rerun()
 
@@ -381,11 +454,11 @@ elif st.session_state.phase == "guess":
             st.write(f"📍 Guess: **{st.session_state.guess[0]:.6f}, {st.session_state.guess[1]:.6f}**")
             if st.button("🧹 Borrar guess", use_container_width=True):
                 st.session_state.guess = None
-                st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
+                st.session_state.guess_view = vista_inicial()
                 st.rerun()
 
-            if st.button("🎯 Recentrar Bucaramanga", use_container_width=True):
-                st.session_state.guess_view = {"center": GUESS_CENTER_DEFAULT, "zoom": GUESS_ZOOM_DEFAULT}
+            if st.button(f"🎯 Recentrar {st.session_state.ciudad}", use_container_width=True):
+                st.session_state.guess_view = vista_inicial()
                 st.rerun()
     with cB:
         st.info("Cuando tengas tu guess, presiona **Finalizar** arriba.")
@@ -442,7 +515,7 @@ else:
         m1, m2, m3 = st.columns(3)
         m1.metric("Distancia", distancia_txt)
         m2.metric("Score", f"{score}/{MAX_SCORE}")
-        m3.success(f"Era: {target['name']}")
+        m3.success(f"Era: {target['name']} · {target['ciudad']}")
         estilo(f"{emoji} {frase}")
 
         # Tarjeta que aparece en el centro de la pantalla y se va sola. Se
@@ -499,7 +572,7 @@ else:
                 st.balloons()
     else:
         st.warning("No hubo guess.")
-        st.success(f"Era: {target['name']}")
+        st.success(f"Era: {target['name']} · {target['ciudad']}")
 
     st_folium(
         res_map,
