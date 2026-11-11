@@ -236,6 +236,15 @@ def vista_inicial(ciudad=None):
     return dict(VISTAS[ciudad or st.session_state.get("ciudad", "Bucaramanga")])
 
 
+def lugar_fijo():
+    """PINNED pero tomado de LOCATIONS, para que traiga su campo 'ciudad'.
+
+    Usar el PINNED crudo dejaba el objetivo inicial sin ciudad y la pantalla de
+    resultado reventaba con KeyError en la primera ronda.
+    """
+    return next(l for l in LOCATIONS if l["name"] == PINNED["name"])
+
+
 def lugares_de(ciudad):
     if ciudad == "Las dos":
         return LOCATIONS
@@ -250,7 +259,7 @@ MAP_HEIGHT = 540
 if "ciudad" not in st.session_state:
     st.session_state.ciudad = "Bucaramanga"
 if "target" not in st.session_state:
-    st.session_state.target = PINNED          # primera ronda: el colegio
+    st.session_state.target = lugar_fijo()    # primera ronda: el colegio
 if "zoom_idx" not in st.session_state:
     st.session_state.zoom_idx = 0
 if "phase" not in st.session_state:
@@ -280,7 +289,13 @@ def reset_game(ciudad=None):
     st.session_state.anim_mostrada = False      # que la animacion pueda salir de nuevo
 
 target = st.session_state.target
+if "ciudad" not in target:                    # sesion abierta antes del cambio
+    target = st.session_state.target = lugar_fijo()
 target_latlon = (target["lat"], target["lon"])
+
+# La ciudad solo aporta si se esta jugando mezclado; si no, repite lo obvio.
+etiqueta_lugar = target["name"] + (
+    f" · {target['ciudad']}" if st.session_state.ciudad == "Las dos" else "")
 
 # -----------------------------
 # Header (logo + nombre)
@@ -515,7 +530,7 @@ else:
         m1, m2, m3 = st.columns(3)
         m1.metric("Distancia", distancia_txt)
         m2.metric("Score", f"{score}/{MAX_SCORE}")
-        m3.success(f"Era: {target['name']} · {target['ciudad']}")
+        m3.success(f"Era: {etiqueta_lugar}")
         estilo(f"{emoji} {frase}")
 
         # Tarjeta que aparece en el centro de la pantalla y se va sola. Se
@@ -572,7 +587,7 @@ else:
                 st.balloons()
     else:
         st.warning("No hubo guess.")
-        st.success(f"Era: {target['name']} · {target['ciudad']}")
+        st.success(f"Era: {etiqueta_lugar}")
 
     st_folium(
         res_map,
